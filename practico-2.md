@@ -396,51 +396,6 @@ Existen diferentes tipos de XSS:
 - **XSS almacenado:** el contenido se guarda y se ejecuta posteriormente cuando se vuelve a mostrar.
 - **XSS basado en DOM:** el JavaScript del frontend introduce el contenido inseguro dentro de la pagina.
 
-
-## Identificacion de la vulnerabilidad
-
-En este ejercicio se presenta un XSS almacenado, ya que el contenido ingresado se guarda en la base de datos y se ejecuta posteriormente al volver a abrir la edicion de la pelicula.
-
-La aplicacion permite modificar los datos de una pelicula mediante un formulario de edicion.
-
-Cuando se guarda el formulario, Flask obtiene los siguientes valores:
-
-```python
-nombre = request.form.get('nombre', '')
-genero = request.form.get('genero', '')
-director = request.form.get('director', '')
-descripcion = request.form.get('descripcion', '')
-```
-
-Luego, los datos se almacenan en la base de datos:
-
-```python
-db.execute(
-    '''UPDATE peliculas
-       SET nombre=?, genero=?, director=?, descripcion=?
-       WHERE id=?''',
-    (nombre, genero, director, descripcion, pelicula_id),
-)
-```
-
-La consulta se encuentra parametrizada, por lo que el contenido se guarda como un dato. Sin embargo, esta parametrizacion solamente protege contra SQL injection y no evita que el contenido pueda producir un XSS cuando posteriormente se muestra en el navegador.
-
-Al volver a abrir la edicion de la pelicula, la descripcion guardada se muestra de la siguiente manera:
-
-```html
-{{ pelicula['descripcion'] | safe }}
-```
-
-El filtro:
-
-```text
-safe
-```
-
-le indica al motor de plantillas que el contenido es confiable y que puede mostrarse como HTML sin escapar sus caracteres.
-
-Por este motivo, si la descripcion contiene etiquetas HTML o JavaScript, el navegador puede interpretarlas y ejecutarlas.
-
 ## Prueba de concepto (PoC)
 
 Para comprobar la vulnerabilidad se modifico la descripcion de una pelicula desde la pagina de edicion.
@@ -511,7 +466,7 @@ La seccion corregida de `edit.html` quedo de la siguiente manera:
 
 Despues de eliminar el filtro `safe`, se repitieron las pruebas realizadas.
 
-### Comprobacion 1 - Bloqueo de la ejecucion de JavaScript
+### Comprobacion - Bloqueo de la ejecucion de JavaScript
 
 Se volvio a guardar el siguiente contenido en la descripcion:
 
@@ -553,26 +508,14 @@ En este ejercicio se encontraron dos problemas:
 
 ## Prueba de concepto (POC)
 
+
 ### POC 1 - Subida de cualquier archivo
 
-El formulario permite seleccionar cualquier tipo de archivo. El principal problema se encuentra en el servidor, ya que el archivo se guarda sin validar su extension:
-
-```java
-String filename = archivo.getOriginalFilename();
-
-Path uploadPath = Paths.get(uploadDir);
-
-if (!Files.exists(uploadPath)) {
-    Files.createDirectories(uploadPath);
-}
-
-Files.copy(
-    archivo.getInputStream(),
-    uploadPath.resolve(filename)
-);
-```
+El formulario permite seleccionar cualquier tipo de archivo. El principal problema se encuentra en el servidor, ya que el archivo se guarda sin validar su extension.
 
 El servidor obtiene el nombre original y guarda directamente el archivo. No se comprueba si el archivo es realmente un afiche o si tiene una extension permitida.
+
+---
 
 Para comprobar la primera vulnerabilidad se selecciono un archivo de texto llamado `repo.txt`.
 
@@ -592,17 +535,7 @@ Esto demuestra que la validacion no se realizaba en el servidor y que era posibl
 
 ### Uso del nombre original
 
-El archivo tambien se almacena utilizando exactamente el nombre proporcionado durante la subida:
-
-```java
-String filename = archivo.getOriginalFilename();
-```
-
-Luego, la aplicacion permite acceder a los archivos mediante la siguiente ruta:
-
-```java
-@GetMapping("/uploads/NombreArchivo}")
-```
+El archivo tambien se almacena utilizando exactamente el nombre proporcionado durante la subida.
 
 Como el archivo se almacena utilizando el nombre original, se conoce de antemano la ruta en la que se encuentra.
 
@@ -796,3 +729,196 @@ La imagen fue almacenada utilizando un UUID en lugar del nombre original.
 ![Archivo almacenado con UUID](Ejercicio3/Images/10.png)
 
 ---
+
+
+# Ejercicio 4 - Server Side Template Injection
+
+## Marco teorico
+
+La vulnerabilidad de **Server Side Template Injection** ocurre cuando una aplicacion recibe datos del usuario y el servidor los interpreta como instrucciones o expresiones en lugar de tratarlos como texto normal.
+
+Los motores de lenguajes permiten utilizar operaciones dentro de determinados documentos o configuraciones. El problema aparece cuando una entrada controlada por el usuario se envia directamente a uno de estos motores.
+
+Por ejemplo, una aplicacion puede recibir el siguiente texto:
+
+```text
+4*2
+```
+
+El comportamiento esperado para un buscador seria intentar encontrar literalmente el texto `4*2`. Sin embargo, una aplicacion vulnerable puede interpretar la entrada como una operacion y producir:
+
+```text
+8
+```
+
+Dependiendo de las capacidades disponibles en el contexto, un atacante podria utilizar esta vulnerabilidad para:
+
+- Acceder a informacion interna.
+- Consultar propiedades del servidor.
+- Invocar metodos no esperados.
+- Modificar el funcionamiento de la aplicacion.
+- Provocar errores internos.
+- En casos graves, ejecutar codigo o comandos.
+
+## Prueba de concepto (POC)
+
+Primero se ingreso el siguiente texto en el buscador:
+
+```text
+cap
+```
+
+En lugar de buscar funciones cuyo nombre contuviera el texto `cap`, la aplicacion devolvio un error interno del servidor:
+
+```text
+Internal Server Error - 500
+```
+
+![Error al realizar una busqueda normal](Ejercicio4/Images/2.png)
+
+El error ocurre porque el contenido de `buscar` se envia al metodo `evaluate()`:
+
+```java
+String spelResultado = spelEval.evaluate(buscar);
+```
+
+Dentro de este metodo, spel intenta interpretar `cap` como una propiedad o expresion:
+
+```java
+var expr = parser.parseExpression(expression);
+Objectärten result = expr.getValue(standardContext);
+```
+
+Como no existe una propiedad llamada `cap` dentro del contexto, la evaluacion falla y la aplicacion devuelve el error `500`.
+Para confirmar que la entrada estaba siendo interpretada por spel, se ingreso:
+
+```text
+4*2
+```
+
+La aplicacion interpreto la expresion y mostro:
+
+```text
+Resultados buscando por: 8
+```
+
+![Expresion interpretada por spel](Ejercicio4/Images/1.png)
+
+Este resultado confirma que el error anterior se produce porque el servidor intenta evaluar las busquedas como expresiones spel en lugar de tratarlas como texto normal.
+
+## Mitigacion
+
+La vulnerabilidad se produce porque el parametro `buscar` se envia a `SpelEvaluator`:
+
+```java
+String spelResultado = spelEval.evaluate(buscar);
+```
+
+Sin embargo, la funcionalidad solamente necesita comparar el texto ingresado con los nombres de las funciones. No existe ninguna necesidad de interpretar expresiones spel.
+
+Por este motivo, se elimino el uso de `SpelEvaluator` y se comenzo a utilizar directamente el contenido de `buscar`.
+
+### Eliminacion de SpelEvaluator
+
+Se eliminaron del controlador la importacion, el atributo y la dependencia de `SpelEvaluator`.
+
+### Controlador corregido
+
+El metodo de busqueda utiliza ahora el parametro `buscar` directamente como texto:
+
+```java
+@GetMapping("/")
+public String search(
+        @RequestParam(required = false) String buscar,
+        Model model
+) {
+    String textoBusqueda = buscar != null
+        ? buscar.trim()
+        : "";
+
+    model.addAttribute("query", textoBusqueda);
+
+    if (textoBusqueda.isBlank()) {
+        List<Funcion> todas = funcionRepo.findAll();
+
+        model.addAttribute("resultados", todas);
+        model.addAttribute(
+            "mensaje",
+            "Mostrando todas las funciones."
+        );
+
+        return "index";
+    }
+
+    List<Funcion> resultados = funcionRepo.findAll().stream()
+        .filter(f ->
+            f.getNombreFuncion() != null &&
+            f.getNombreFuncion()
+                .toLowerCase()
+                .contains(textoBusqueda.toLowerCase())
+        )
+        .collect(Collectors.toList());
+
+    model.addAttribute("resultados", resultados);
+
+    if (resultados.isEmpty()) {
+        model.addAttribute(
+            "mensaje",
+            "No se encontraron coincidencias."
+        );
+    } else {
+        model.addAttribute(
+            "mensaje",
+            "Resultados buscando por: " + textoBusqueda
+        );
+    }
+
+    return "index";
+}
+```
+
+Si la clase `SpelEvaluator` no es utilizada en otra parte de la aplicacion, tambien puede eliminarse completamente.
+
+Con esta modificacion, la entrada permanece como un `String` y nunca se envia a un interprete de expresiones.
+
+---
+
+## Verificacion de la mitigacion
+
+### Comprobacion de una expresion matematica
+
+Luego de aplicar la correccion se ingreso:
+
+```text
+4+2
+```
+
+La aplicacion ya no calculo la suma ni transformo la entrada en `6`.
+
+En cambio, busco literalmente el texto:
+
+```text
+4+2
+```
+
+Como no existe ninguna funcion con ese nombre, la aplicacion mostro el mensaje:
+
+```text
+No se encontraron coincidencias.
+```
+
+![Expresion tratada como texto](Ejercicio4/Images/3.png)
+
+Esto demuestra que la entrada ya no es evaluada por SpEL.
+
+### Comprobacion de una busqueda normal
+
+Finalmente, se ingreso el texto:
+
+```text
+aveng
+```
+
+La aplicacion utilizo el contenido directamente para buscar coincidencias y mostro las funciones correspondientes a `Avengers`.
+
+![Busqueda normal funcionando correctamente](Ejercicio4/Images/4.png)
