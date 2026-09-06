@@ -530,3 +530,269 @@ El contenido ingresado se mostro literalmente en la pagina:
 ```
 
 El navegador dejo de interpretarlo como codigo HTML o JavaScript.
+
+<br>
+
+---
+
+# Ejercicio 3 - Carga de archivos sin restricciones
+
+## Marco teorico
+
+Una vulnerabilidad de carga de archivos ocurre cuando una aplicacion permite subir archivos sin comprobar correctamente su tipo, extension o nombre.
+
+Esto puede permitir que un usuario almacene archivos que la aplicacion no esperaba, como archivos de texto, HTML, scripts u otros tipos de archivos peligrosos.
+
+En este ejercicio se encontraron dos problemas:
+
+1. La aplicacion permite subir cualquier tipo de archivo.
+2. El archivo se guarda utilizando su nombre original, haciendo que su ubicacion sea facil de predecir.
+
+
+---
+
+## Prueba de concepto (POC)
+
+### POC 1 - Subida de cualquier archivo
+
+El formulario permite seleccionar cualquier tipo de archivo. El principal problema se encuentra en el servidor, ya que el archivo se guarda sin validar su extension:
+
+```java
+String filename = archivo.getOriginalFilename();
+
+Path uploadPath = Paths.get(uploadDir);
+
+if (!Files.exists(uploadPath)) {
+    Files.createDirectories(uploadPath);
+}
+
+Files.copy(
+    archivo.getInputStream(),
+    uploadPath.resolve(filename)
+);
+```
+
+El servidor obtiene el nombre original y guarda directamente el archivo. No se comprueba si el archivo es realmente un afiche o si tiene una extension permitida.
+
+Para comprobar la primera vulnerabilidad se selecciono un archivo de texto llamado `repo.txt`.
+
+Aunque el formulario esta pensado para subir afiches, la aplicacion permite seleccionar el archivo sin mostrar ninguna restriccion.
+
+![Seleccion del archivo repo.txt](Ejercicio3/Images/1.png)
+
+Luego de presionar el boton de subida, la aplicacion acepta y almacena el archivo.
+
+Como el archivo no es una imagen, el navegador no puede mostrarlo correctamente como afiche.
+
+![Archivo de texto utilizado como afiche](Ejercicio3/Images/2.png)
+
+Esto demuestra que la validacion no se realizaba en el servidor y que era posible almacenar archivos con extensiones diferentes a las esperadas.
+
+### POC 2 - Acceso utilizando el nombre original
+
+### Uso del nombre original
+
+El archivo tambien se almacena utilizando exactamente el nombre proporcionado durante la subida:
+
+```java
+String filename = archivo.getOriginalFilename();
+```
+
+Luego, la aplicacion permite acceder a los archivos mediante la siguiente ruta:
+
+```java
+@GetMapping("/uploads/NombreArchivo}")
+```
+
+Como el archivo se almacena utilizando el nombre original, se conoce de antemano la ruta en la que se encuentra.
+
+Se ingreso manualmente la siguiente direccion:
+
+```text
+http://localhost:8080/uploads/repo.txt
+```
+
+La aplicacion devolvio el contenido del archivo subido.
+
+![Acceso al archivo mediante su nombre original](Ejercicio3/Images/3.png)
+
+Tambien se comprobo desde el contenedor que el archivo fue almacenado dentro del directorio `uploads` con el nombre original `repo.txt`.
+
+![Archivo repo.txt almacenado en uploads](Ejercicio3/Images/4.png)
+
+Por lo tanto, cualquier persona que conozca o pueda adivinar el nombre del archivo puede intentar acceder a el mediante la ruta publica de archivos.
+
+---
+
+## Mitigacion
+
+Para corregir las vulnerabilidades se realizaron dos cambios principales:
+
+1. Validar la extension del archivo antes de almacenarlo.
+2. Reemplazar el nombre original por un UUID aleatorio.
+
+### Validacion de la extension
+
+Primero se obtiene el nombre original del archivo:
+
+```java
+String nombreOriginal = archivo.getOriginalFilename();
+```
+
+Se comprueba que el nombre exista y que tenga una extension:
+
+```java
+if (nombreOriginal == null || !nombreOriginal.contains(".")) {
+    return "redirect:/upload/" + id;
+}
+```
+
+Luego se obtiene la extension:
+
+```java
+int i = nombreOriginal.lastIndexOf('.');
+
+String extension = nombreOriginal
+    .substring(i + 1)
+    .toLowerCase();
+```
+
+Finalmente, se permite solamente la subida de archivos con extension `png`, `jpg` o `jpeg`:
+
+```java
+if (!List.of("png", "jpg", "jpeg").contains(extension)) {
+    return "redirect:/upload/" + id;
+}
+```
+
+Si el archivo no tiene una extension permitida, la aplicacion vuelve al formulario y no almacena el archivo.
+
+### Generacion de un nombre aleatorio
+
+Para evitar utilizar el nombre original se genera un UUID:
+
+```java
+String uuidAleatorio = UUID.randomUUID().toString();
+String filename = uuidAleatorio + "." + extension;
+```
+
+Por ejemplo, un archivo llamado:
+
+```text
+capa8.jpg
+```
+
+puede almacenarse con un nombre similar al siguiente:
+
+```text
+62b207d8-67f6-46d6-9eb5-6aa592a0a8b7.jpg
+```
+
+De esta forma, el usuario no controla el nombre final utilizado por el servidor y la direccion del archivo deja de ser facilmente predecible.
+
+### Codigo corregido
+
+El metodo de subida queda de la siguiente manera:
+
+```java
+@PostMapping("/upload/{id}")
+public String uploadFile(
+        @PathVariable Integer id,
+        @RequestParam("afiche") MultipartFile archivo
+) throws IOException {
+
+    Pelicula pelicula = peliculaRepo.findById(id)
+        .orElseThrow(() ->
+            new EntityNotFoundException("Pelicula no encontrada")
+        );
+
+    String nombreOriginal = archivo.getOriginalFilename();
+
+    if (nombreOriginal == null || !nombreOriginal.contains(".")) {
+        return "redirect:/upload/" + id;
+    }
+
+    int i = nombreOriginal.lastIndexOf('.');
+
+    String extension = nombreOriginal
+        .substring(i + 1)
+        .toLowerCase();
+
+    if (!List.of("png", "jpg", "jpeg").contains(extension)) {
+        return "redirect:/upload/" + id;
+    }
+
+    String uuidAleatorio = UUID.randomUUID().toString();
+    String filename = uuidAleatorio + "." + extension;
+
+    Path uploadPath = Paths.get(uploadDir);
+
+    if (!Files.exists(uploadPath)) {
+        Files.createDirectories(uploadPath);
+    }
+
+    Files.copy(
+        archivo.getInputStream(),
+        uploadPath.resolve(filename)
+    );
+
+    pelicula.setAfichePath(filename);
+    peliculaRepo.save(pelicula);
+
+    return "redirect:/";
+}
+```
+
+Tambien es necesario importar `UUID`:
+
+```java
+import java.util.UUID;
+```
+
+---
+
+## Verificacion de la mitigacion
+
+### Comprobacion de un archivo no permitido
+
+Para verificar la validacion se intento subir nuevamente el archivo `repo.txt`.
+
+![Intento de subida del archivo repo.txt](Ejercicio3/Images/5.png)
+
+Al presionar el boton, la aplicacion rechazo el archivo y regreso al formulario de subida.
+
+![Archivo de texto rechazado](Ejercicio3/Images/6.png)
+
+El archivo no fue almacenado porque la extension `txt` no se encuentra dentro de las extensiones permitidas.
+
+### Comprobacion de una imagen permitida
+
+Luego se selecciono una imagen valida llamada `capa8.jpg`.
+
+![Seleccion de una imagen JPG](Ejercicio3/Images/7.png)
+
+La aplicacion acepto el archivo y el afiche se mostro correctamente en el buscador.
+
+![Imagen cargada correctamente](Ejercicio3/Images/8.png)
+
+Esto comprueba que las extensiones permitidas pueden continuar siendo utilizadas normalmente.
+
+### Comprobacion del cambio de nombre
+
+Despues de subir la imagen se intento acceder utilizando su nombre original:
+
+```text
+http://localhost:8080/uploads/capa8.jpg
+```
+
+El servidor respondio con un error `404`, ya que el archivo no fue almacenado con ese nombre.
+
+![Nombre original no encontrado](Ejercicio3/Images/9.png)
+
+Finalmente, se reviso el directorio `uploads` dentro del contenedor.
+
+La imagen fue almacenada utilizando un UUID en lugar del nombre original.
+
+![Archivo almacenado con UUID](Ejercicio3/Images/10.png)
+
+---
