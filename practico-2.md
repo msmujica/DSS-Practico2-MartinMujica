@@ -19,9 +19,9 @@
 
 ## Introduccion
 
-El presente informe documenta el analisis y la mitigacion de diferentes vulnerabilidades de seguridad incluidas intencionalmente en las aplicaciones proporcionadas para el Practico 2.
+El presente informe documenta el analisis y la mitigacion de diferentes vulnerabilidades del Practico 2.
 
-Para cada ejercicio se busca identificar la vulnerabilidad, comprender su causa, demostrar su explotacion mediante una prueba de concepto (POC) dentro de un entorno local, e implementar una modificacion que elimine o reduzca el riesgo.
+Para cada ejercicio se busca identificar la vulnerabilidad, comprender su causa, demostrar su explotacion mediante una prueba de concepto (POC), e implementar una modificacion que elimine la vulnerabilidad.
 
 Despues de implementar cada mitigacion, se vuelve a ejecutar la aplicacion para comprobar que la aplicacion continue operativa y que las entradas utilizadas durante la POC ya no produzcan el comportamiento vulnerable.
 
@@ -36,18 +36,14 @@ Despues de implementar cada mitigacion, se vuelve a ejecutar la aplicacion para 
 ## Vulnerabilidades analizadas
 
 1. **Ejercicio 1 - Inyeccion SQL (SQL Injection)**
-   - `CWE-89`.
+
 2. **Ejercicio 2 - Cross-Site Scripting (XSS)**
-   - `CWE-79`.
 
 3. **Ejercicio 3 - Carga de archivos sin restricciones**
-   - `CWE-434`.
 
 4. **Ejercicio 4 - Server-Side Template Injection (SSTI)**
-   - `CWE-1336`.
 
 5. **Ejercicio 5 - Almacenamiento inseguro**
-   - `CWE-922`.
 
 <br>
 <br>
@@ -922,3 +918,221 @@ aveng
 La aplicacion utilizo el contenido directamente para buscar coincidencias y mostro las funciones correspondientes a `Avengers`.
 
 ![Busqueda normal funcionando correctamente](Ejercicio4/Images/4.png)
+
+
+# Ejercicio 5 - Almacenamiento inseguro
+
+## Prueba de concepto (POC)
+
+La vulnerabilidad de este ejercicio se encuentra en la forma en que la aplicacion almacena las contraseñas de los usuarios.
+
+En la version vulnerable, las contraseñas son cifradas utilizando `AES-256` en modo `ECB`:
+
+```java
+private static final String CIPHER_ALGO = "AES/ECB/PKCS5Padding";
+```
+
+Ademas, la clave utilizada para realizar el cifrado se encuentra directamente dentro del codigo fuente:
+
+```java
+rivate static final String SECRET_KEY = "MySup3rS3cr3tK3y!2024CineBuscadorAES";
+```
+
+El principal problema es que AES es un algoritmo de cifrado reversible. Por lo tanto, si se obtiene el valor cifrado y la clave utilizada por la aplicacion, es posible recuperar la contraseña original.
+
+Adicionalmente, el modo `ECB` utilizado por la aplicacion es predecible: al cifrar dos veces exactamente la misma contraseña con la misma clave se obtiene el mismo resultado.
+
+Para demostrar estos problemas se realizaron las siguientes pruebas.
+
+### POC 1 - Comparacion de dos usuarios con la misma contraseña
+
+Primero se creo un usuario:
+
+```text
+Usuario: mmujica
+Contraseña: [mmujica]
+```
+
+Luego se inicio sesion con el usuario.
+
+Despues de realizar correctamente el inicio de sesion, la aplicacion muestra el valor cifrado correspondiente a la contraseña:
+
+![Contraseña cifrada del primer usuario](Ejercicio5/Images/1.png)
+
+Posteriormente se creo un segundo usuario diferente:
+
+```text
+Usuario: mmujica2
+Contraseña: [mmujica]
+```
+
+Se utilizo exactamente la misma contraseña que para el primer usuario.
+
+Despues de iniciar sesion con `mmujica2`, la aplicacion mostro nuevamente la contraseña cifrada.
+
+![Contraseña cifrada del segundo usuario](Ejercicio5/Images/2.png)
+
+Al comparar ambos resultados se puede observar que los dos usuarios poseen exactamente el mismo valor cifrado:
+
+Esto ocurre porque la aplicacion utiliza:
+
+```java
+AES/ECB/PKCS5Padding
+```
+
+y siempre utiliza la misma clave para realizar el cifrado, por este motivo, una misma entrada produce el mismo ciphertext.
+
+Esto permite identificar patrones entre las contraseñas almacenadas. Por ejemplo, aunque inicialmente no se conozca cual es la contraseña utilizada, puede determinarse que dos usuarios están utilizando exactamente la misma.
+
+### POC 2 - Clave AES embebida en el codigo fuente
+
+Se reviso la clase encargada del cifrado de las contraseñas.
+
+Dentro de `EncryptionService` se encontró la siguiente constante:
+
+```java
+private static final String SECRET_KEY = "MySup3rS3cr3tK3y!2024CineBuscadorAES";
+```
+
+La clave utilizada para proteger todas las contraseñas se encuentra escrita directamente dentro del codigo fuente de la aplicacion.
+
+La misma clave es utilizada para crear el objeto:
+
+```java
+secretKey = new SecretKeySpec(
+    Arrays.copyOf(keyBytes, 32),
+    "AES"
+);
+```
+
+y posteriormente para realizar el cifrado:
+
+```java
+Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
+cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+```
+
+Por lo tanto, una persona que tenga acceso al codigo fuente de la aplicacion puede conocer tanto el algoritmo utilizado como la clave necesaria para realizar la operacion inversa.
+
+## Mitigacion
+
+Para mitigar la vulnerabilidad se elimino el cifrado reversible de las contraseñas mediante AES y se reemplazo por el uso de `BCryptPasswordEncoder`.
+
+El principal problema de la version vulnerable era que las contraseñas se almacenaban utilizando AES. Al tratarse de un algoritmo de cifrado reversible, una persona que consiguiera el valor cifrado y la clave utilizada por la aplicacion podia recuperar la contraseña original.
+
+Ademas, la clave utilizada para realizar el cifrado se encontraba escrita directamente dentro del codigo fuente:
+
+```java
+private static final String SECRET_KEY = "MySup3rS3cr3tK3y!2024CineBuscadorAES";
+```
+
+Por este motivo, se elimino completamente el uso de AES para el almacenamiento de contraseñas y se comenzo a utilizar BCrypt.
+
+### Uso de BCrypt
+
+En `EncryptionService` se creo una instancia de `BCryptPasswordEncoder`:
+
+```java
+private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+```
+
+A diferencia del cifrado AES utilizado anteriormente, BCrypt genera un hash que no necesita ser descifrado para realizar el inicio de sesion.
+
+Para almacenar una contraseña se utiliza:
+
+```java
+public static String hashPassword(String password) {
+    return passwordEncoder.encode(password);
+}
+```
+
+De esta manera, la contraseña ingresada por el usuario se transforma en un hash antes de ser almacenada.
+
+La clase `EncryptionService` corregida queda de la siguiente manera:
+
+```java
+package com.cinebuscador.config;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Base64;
+
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+public class EncryptionService {
+
+    private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    private EncryptionService() {
+    }
+
+    public static String hashPassword(String password) {
+        return passwordEncoder.encode(password);
+    }
+
+    public static boolean verifyPassword(String password, String hashedPassword) {
+        return passwordEncoder.matches(password, hashedPassword);
+    }
+}
+```
+
+Con esta modificacion ya no existe una clave AES dentro del codigo y tampoco existen metodos para cifrar o descifrar contraseñas.
+
+---
+
+### Modificacion del registro de usuarios
+
+En la version vulnerable, la contraseña era cifrada antes de almacenarse utilizando AES.
+
+Luego de la mitigacion, al registrar un nuevo usuario se genera un hash utilizando BCrypt:
+
+```java
+com.cinebuscador.model.User nuevoUsuario = new com.cinebuscador.model.User();
+nuevoUsuario.setUsername(username);
+nuevoUsuario.setPassword(EncryptionService.hashPassword(password));
+userRepository.save(nuevoUsuario);
+```
+
+Por lo tanto, el valor almacenado en la base de datos ya no corresponde a una contraseña cifrada que pueda ser recuperada posteriormente.
+
+---
+
+### Modificacion del inicio de sesion
+
+Como la contraseña ya no puede ni necesita ser descifrada, tambien se modifico el proceso de inicio de sesion.
+
+Primero se obtiene el hash almacenado correspondiente al usuario:
+
+```java
+String userHashedPassword = user.getPassword();
+```
+
+Luego se utiliza el metodo `verifyPassword()`:
+
+```java
+String userHashedPassword = user.getPassword();
+
+if (EncryptionService.verifyPassword(password, userHashedPassword)) {
+    model.addAttribute("loginSuccess", true);
+    model.addAttribute("welcomeUser", username);
+    return "index";
+}
+```
+
+Internamente, este metodo utiliza:
+
+```java
+passwordEncoder.matches(password, hashedPassword);
+```
+
+BCrypt toma la contraseña ingresada durante el login y comprueba si corresponde con el hash almacenado.
+
+No es necesario recuperar la contraseña original en ningun momento.
+
+---
+
+De esta manera, la aplicacion deja de almacenar contraseñas utilizando un mecanismo reversible y tampoco mantiene una clave criptografica estatica dentro del codigo fuente.
+
+Ademas, BCrypt incorpora un valor aleatorio en la generacion de cada hash. Por este motivo, dos usuarios que utilicen exactamente la misma contraseña pueden tener hashes diferentes.
