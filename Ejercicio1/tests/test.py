@@ -71,7 +71,7 @@ def test_busqueda_injection_url(client):
         query_string={
             "buscar": "s",
             "ordenar_por": "nombre",
-            "sentido": "ASC%20LIMIT%201%20"
+            "sentido": "ASC LIMIT 1"
         }
     )
 
@@ -82,10 +82,11 @@ def test_busqueda_injection_url(client):
 
     assert respuesta.status_code == 200
 
-    # La búsqueda por "s" devuelve nueve funciones.
+    # La búsqueda por "s" devuelve doce funciones.
     # El LIMIT 1 no debe modificar la consulta.
     assert cantidad == 12
 
+    assert "Dune: Parte Dos" in contenido
     assert "La Sociedad de la Nieve" in contenido
     assert "Spider-Man: Across the Spider-Verse" in contenido
     assert "Poor Things" in contenido
