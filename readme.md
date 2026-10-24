@@ -68,7 +68,7 @@ Desde la carpeta `Ejercicio1`:
 
 ```bash
 docker compose up --build -d
-docker compose exec sqli python -m pytest tests/test.py -v -s
+docker compose exec ejercicio1 python -m pytest tests/test.py -v -s
 ```
 
 ---
@@ -102,7 +102,7 @@ Desde la carpeta `Ejercicio2`:
 
 ```bash
 docker compose up --build -d
-docker compose exec xss python -m pytest tests/test.py -v -s
+docker compose exec ejercicio1 python -m pytest tests/test.py -v -s
 ```
 
 ---
@@ -146,7 +146,7 @@ Desde la carpeta `Ejercicio3`:
 
 ```bash
 docker compose up --build -d
-docker compose exec cinebuscador3 python -m pytest tests/test.py -v -s
+docker compose exec cinebuscador python -m pytest tests/test.py -v -s
 ```
 
 ---
