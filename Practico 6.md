@@ -206,8 +206,8 @@ Por cada combinacion de version y rama se generaron tres archivos principales: J
 | `Ejercicio3/src/main/resources/templates/upload.html` | Formulario POST de carga de afiches sin token CSRF explícito en la plantilla. | CWE-352 | 39–46 | 39–46 |
 | `Ejercicio4/src/main/java/com/cinebuscador/config/SpelEvaluator.java` | Evaluación dinámica de SpEL en evaluate(String expression). | CWE-94 | 14–34 | 14–34 |
 | `Ejercicio4/src/main/java/com/cinebuscador/config/SpelEvaluator.java` | Entrada HTTP buscar que llega a parseExpression. La traza registra el flujo desde FuncionController.java. | CWE-95 | 30 | Sin alerta |
-| `Ejercicio5/src/main/java/com/cinebuscador/config/EncryptionService.java` | Uso de AES en modo ECB reportado en Cipher.getInstance(CIPHER_ALGO), línea 50. | CWE-327 | 50 | Sin alerta |
-| `Ejercicio5/src/main/java/com/cinebuscador/config/EncryptionService.java` | Uso de AES en modo ECB reportado en Cipher.getInstance(CIPHER_ALGO), línea 64. | CWE-327 | 64 | Sin alerta |
+| `Ejercicio5/src/main/java/com/cinebuscador/config/EncryptionService.java` | Uso de AES en modo ECB reportado en Cipher.getInstance(...), línea 50. | CWE-327 | 50 | Sin alerta |
+| `Ejercicio5/src/main/java/com/cinebuscador/config/EncryptionService.java` | Uso de AES en modo ECB reportado en Cipher.getInstance(...), línea 64. | CWE-327 | 64 | Sin alerta |
 | `Ejercicio5/src/main/resources/templates/index.html` | Formulario POST de inicio de sesión (/login) sin token CSRF explícito en la plantilla. | CWE-352 | 45–51 | 45–51 |
 | `Ejercicio5/src/main/resources/templates/index.html` | Formulario POST de registro (/register) sin token CSRF explícito en la plantilla. | CWE-352 | 56–64 | 56–64 |
 | **Total de alertas** |  |  | **11** | **8** |
@@ -235,9 +235,9 @@ La alerta es un falso positivo porque el texto que escribe el usuario se pasa co
 **Archivo:** `SpelEvaluator.java`  
 **Detectado por:** Semgrep CE y Pro.
 
-La alerta es un falso positivo para el flujo web revisado. Semgrep encuentra el metodo que evalua expresiones, pero la llamada desde el controlador esta comentada. Ahora la busqueda compara el texto ingresado con los nombres de las funciones. Por eso, en ese flujo, la entrada del usuario nunca llega al evaluador.
+La alerta es un falso positivo. Semgrep encuentra el metodo que evalua expresiones, pero la llamada desde el controlador esta comentada. Ahora la busqueda compara el texto ingresado con los nombres de las funciones. Por eso, en ese flujo, la entrada del usuario nunca llega al evaluador.
 
-## Falsos negativos en `main`
+## Falsos negativos en main
 
 ### Ejercicio 1 - Inyección SQL
 
@@ -245,16 +245,16 @@ La alerta es un falso positivo para el flujo web revisado. Semgrep encuentra el 
 **Omitido por** Semgrep Community Edition.  
 **Detectado por** Semgrep Pro, línea 32.
 
-En `main`, el buscador incorpora el texto de búsqueda y el sentido del orden directamente en la consulta SQL. CE omitió esa inyección. Pro sí la detectó en la llamada a `db.execute(sql)`.
+En main, el buscador incorpora el texto de búsqueda y el sentido del orden directamente en la consulta SQL. CE omitió esa inyección. Pro sí la detectó en la llamada a db.execute(sql).
 
-En `practico-2`, la búsqueda se pasa como parámetro y el orden se limita a valores permitidos. Pro siguió marcando la consulta en la línea 41, por lo que esa alerta es un falso positivo en la rama corregida.
+En practico-2, la búsqueda se pasa como parámetro y el orden se limita a valores permitidos. Pro siguió marcando la consulta en la línea 41, por lo que esa alerta es un falso positivo en la rama corregida.
 
 ### Ejercicio 2 - XSS almacenado
 
 **Archivo** `Ejercicio2/templates/edit.html`, línea 86.  
 **Omitido por** Semgrep Community Edition y Pro.
 
-En `main`, la aplicación guarda la descripción de la película y luego la muestra en la vista de edición con `safe`. Ese filtro desactiva el escape de HTML, por lo que el navegador puede interpretar el contenido guardado como código. En `practico-2` se quitó el filtro y Jinja volvió a escapar la descripción.
+En main, la aplicación guarda la descripción de la película y luego la muestra en la vista de edición con safe. Ese filtro desactiva el escape de HTML, por lo que el navegador puede interpretar el contenido guardado como código. En practico-2 se quitó el filtro y Jinja volvió a escapar la descripción.
 
 
 ## Analisis estatico con un LLM
@@ -310,7 +310,7 @@ En `main`, la aplicación guarda la descripción de la película y luego la mues
 | P06 | 3 | El cambio de afiches sigue sin verificar permisos en el servidor. | CWE-862 |
 | P07 | 3 | Los afiches anteriores se siguen acumulando al reemplazarlos. | CWE-770 |
 | P08 | 3 | Se mantiene la observacion sobre la version de Tomcat que procesa las cargas de archivos. | CWE-770 |
-| P09 | 5 | GPT reporto un posible problema con la version de BCrypt y el manejo de contraseñas largas. | CWE-287, CWE-521 |
+| P09 | 5 | Un posible problema con la version de BCrypt y el manejo de contraseñas largas. | CWE-287, CWE-521 |
 | P10 | 5 | El codigo del login sigue sin limitar los intentos. | CWE-307 |
 | P11 | 5 | El servidor sigue permitiendo contraseñas sin una longitud minima. | CWE-521 |
 | P12 | 5 | El registro sigue indicando si un usuario ya existe. | CWE-204 |
@@ -325,6 +325,6 @@ En `main`, la aplicación guarda la descripción de la película y luego la mues
 | Semgrep Pro | 11 alertas | 8 alertas |
 | GPT | 20 hallazgos y observaciones | 14 hallazgos y observaciones |
 
-GPT reporto mas puntos porque tambien reviso cosas como los permisos, la configuracion y las dependencias. Por ejemplo, encontro el XSS del Ejercicio 2 en `main` y el modo debug de Flask en ambas ramas. Esos puntos no aparecieron en los reportes de Semgrep. Algunos dependen de la configuracion o de la version que se use al ejecutar la aplicacion, asi que los conteos representan lo que reporto cada analisis.
+GPT reporto mas puntos porque tambien reviso cosas como los permisos, la configuracion y las dependencias. Por ejemplo, encontro el XSS del Ejercicio 2 en main y el modo debug de Flask en ambas ramas. Esos puntos no aparecieron en los reportes de Semgrep. Algunos dependen de la configuracion o de la version que se use al ejecutar la aplicacion, asi que los conteos representan lo que reporto cada analisis.
 
-Tambien hubo coincidencias, GPT y Semgrep Pro encontraron la inyeccion SQL del Ejercicio 2 en ambas ramas. Para el Ejercicio 1, GPT vio que la consulta ya estaba corregida en `practico-2`, lo que coincide con la revision del falso positivo de Pro. Por otro lado, CE y Pro marcaron los contenedores que corren como root en los Ejercicios 1 y 2 y GPT no incluyo ese punto.
+Tambien hubo coincidencias, GPT y Semgrep Pro encontraron la inyeccion SQL del Ejercicio 2 en ambas ramas. Para el Ejercicio 1, GPT vio que la consulta ya estaba corregida en practico-2, lo que coincide con la revision del falso positivo de Pro. Por otro lado, CE y Pro marcaron los contenedores que corren como root en los Ejercicios 1 y 2 y GPT no incluyo ese punto.
