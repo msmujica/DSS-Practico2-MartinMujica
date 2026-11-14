@@ -1,0 +1,279 @@
+                  
+                  
+┌────────────────┐
+│ Debugging Info │
+└────────────────┘
+                  
+  SCAN ENVIRONMENT
+  versions    - semgrep 1.183.0 on python 3.12.16                      
+  environment - running in environment git, triggering event is unknown
+            
+  CONNECTION
+  Initializing scan (deployment=mujica-personal-org, scan_id=263912508)  
+  Enabled products: Code                                                         
+        
+  ENGINE
+  Using Semgrep Pro Version: 1.183.0
+  Installed at /usr/lib/python3.12/site-packages/semgrep/bin/semgrep-core-proprietary
+Rule javascript.vulnerable-components.mise-brotli.mise-brotli contains an include pattern '.mise/config.toml' that will soon be interpreted as '/.mise/config.toml' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule javascript.vulnerable-components.mise-brotli.mise-brotli and change it to '**/.mise/config.toml'. To confirm the anchored behavior and avoid this warning, change it to '/.mise/config.toml'.
+Rule javascript.vulnerable-components.mise-brotli.mise-brotli contains an include pattern '.config/mise/config.toml' that will soon be interpreted as '/.config/mise/config.toml' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule javascript.vulnerable-components.mise-brotli.mise-brotli and change it to '**/.config/mise/config.toml'. To confirm the anchored behavior and avoid this warning, change it to '/.config/mise/config.toml'.
+Rule javascript.vulnerable-components.mise-brotli.mise-brotli contains an include pattern '.config/mise.toml' that will soon be interpreted as '/.config/mise.toml' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule javascript.vulnerable-components.mise-brotli.mise-brotli and change it to '**/.config/mise.toml'. To confirm the anchored behavior and avoid this warning, change it to '/.config/mise.toml'.
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 58 files tracked by git with 2969 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin      Rules                                                                
+ ─────────────────────────────        ───────────────────                                                               
+  <multilang>      61      58          Pro rules    1894                                                                
+  java            298      15          Community    1075                                                                
+  html              2       7                                                                                           
+  python         1156       6                                                                                           
+  yaml             35       5                                                                                           
+  dockerfile       11       5                                                                                           
+                                                                                                                        
+Rule javascript.vulnerable-components.mise-brotli.mise-brotli contains an include pattern '.mise/config.toml' that will soon be interpreted as '/.mise/config.toml' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule javascript.vulnerable-components.mise-brotli.mise-brotli and change it to '**/.mise/config.toml'. To confirm the anchored behavior and avoid this warning, change it to '/.mise/config.toml'.
+Rule javascript.vulnerable-components.mise-brotli.mise-brotli contains an include pattern '.config/mise/config.toml' that will soon be interpreted as '/.config/mise/config.toml' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule javascript.vulnerable-components.mise-brotli.mise-brotli and change it to '**/.config/mise/config.toml'. To confirm the anchored behavior and avoid this warning, change it to '/.config/mise/config.toml'.
+Rule javascript.vulnerable-components.mise-brotli.mise-brotli contains an include pattern '.config/mise.toml' that will soon be interpreted as '/.config/mise.toml' to comply with the Semgrepignore v2 and Gitignore specifications. To make this pattern permanently unanchored, edit rule javascript.vulnerable-components.mise-brotli.mise-brotli and change it to '**/.config/mise.toml'. To confirm the anchored behavior and avoid this warning, change it to '/.config/mise.toml'.
+Semgrep Pro Engine may be slower and show different results than Semgrep OSS.
+  Uploading scan results  
+  Finalizing scan                                          
+                                 
+┌───────────────────────────────┐
+│ 11 Non-blocking Code Findings │
+└───────────────────────────────┘
+                         
+    Ejercicio1/Dockerfile
+   ❯❯❱ dockerfile.security.missing-user.missing-user
+          By not specifying a USER, a program in the container may run as 'root'. This is a security hazard.
+          If an attacker can control a process running as root, they may have control over the container.   
+          Ensure that the last USER in a Dockerfile is a USER other than 'root'.                            
+          Details: https://sg.run/Gbvn                                                                      
+                                                                                                            
+           ▶▶┆ Autofix ▶ USER non-root CMD ["sh", "-c", "python init_db.py && python app.py"]
+           12┆ CMD ["sh", "-c", "python init_db.py && python app.py"]
+                     
+    Ejercicio1/app.py
+   ❯❯❯❱ python.flask.db.generic-sql-flask.generic-sql-flask
+          Untrusted input might be used to build a database query, which can lead to a SQL injection       
+          vulnerability. An attacker can execute malicious SQL statements and gain unauthorized access to  
+          sensitive data, modify, delete data, or execute arbitrary system commands. The driver API has the
+          ability to bind parameters to the query in a safe way. Make sure not to dynamically create SQL   
+          queries from user-influenced inputs. If you cannot avoid this, either escape the data properly or
+          create an allowlist to check the value.                                                          
+          Details: https://sg.run/AbKXQ                                                                    
+                                                                                                           
+           32┆ return db.execute(sql).fetchall()
+    
+    
+          Taint comes from:
+    
+           37┆ query = request.args.get('buscar', '')
+    
+    
+          Taint flows through these intermediate variables:
+    
+           37┆ query = request.args.get('buscar', '')
+    
+    
+                This is how taint reaches the sink:
+    
+           42┆ resultados = buscar_funciones(query, sort_by, sort_dir)
+    
+          Taint flows through these intermediate variables:
+    
+           23┆ def buscar_funciones(query, sort_by='nombre', sort_dir='ASC'):
+    
+           25┆ sql = f"SELECT peliculas.nombre as pelicula, funciones.fecha_hora, " \
+    
+          then reaches:
+    
+           32┆ return db.execute(sql).fetchall()
+    
+                         
+    Ejercicio2/Dockerfile
+   ❯❯❱ dockerfile.security.missing-user.missing-user
+          By not specifying a USER, a program in the container may run as 'root'. This is a security hazard.
+          If an attacker can control a process running as root, they may have control over the container.   
+          Ensure that the last USER in a Dockerfile is a USER other than 'root'.                            
+          Details: https://sg.run/Gbvn                                                                      
+                                                                                                            
+           ▶▶┆ Autofix ▶ USER non-root CMD ["sh", "-c", "python init_db.py && python app.py"]
+           12┆ CMD ["sh", "-c", "python init_db.py && python app.py"]
+                     
+    Ejercicio2/app.py
+   ❯❯❯❱ python.flask.db.generic-sql-flask.generic-sql-flask
+          Untrusted input might be used to build a database query, which can lead to a SQL injection       
+          vulnerability. An attacker can execute malicious SQL statements and gain unauthorized access to  
+          sensitive data, modify, delete data, or execute arbitrary system commands. The driver API has the
+          ability to bind parameters to the query in a safe way. Make sure not to dynamically create SQL   
+          queries from user-influenced inputs. If you cannot avoid this, either escape the data properly or
+          create an allowlist to check the value.                                                          
+          Details: https://sg.run/AbKXQ                                                                    
+                                                                                                           
+           35┆ return db.execute(sql).fetchall()
+    
+    
+          Taint comes from:
+    
+           40┆ query = request.args.get('buscar', '')
+    
+    
+          Taint flows through these intermediate variables:
+    
+           40┆ query = request.args.get('buscar', '')
+    
+    
+                This is how taint reaches the sink:
+    
+           45┆ resultados = buscar_funciones(query, sort_by, sort_dir)
+    
+          Taint flows through these intermediate variables:
+    
+           23┆ def buscar_funciones(query, sort_by='nombre', sort_dir='ASC'):
+    
+           25┆ sql = (
+    
+          then reaches:
+    
+           35┆ return db.execute(sql).fetchall()
+    
+                                                       
+    Ejercicio3/src/main/resources/templates/upload.html
+    ❯❱ python.django.security.django-no-csrf-token.django-no-csrf-token
+          Manually-created forms in django templates should specify a csrf_token to prevent CSRF attacks.
+          Details: https://sg.run/N0Bp                                                                   
+                                                                                                         
+           39┆ <form method="post"
+           40┆       th:action="@{/upload/{id}(id=${pelicula.id})}"
+           41┆       enctype="multipart/form-data">
+           42┆     <label for="afiche">Seleccionar archivo:</label>
+           43┆     <input type="file" name="afiche" id="afiche" accept="*/*" required>
+           44┆     <br><br>
+           45┆     <button type="submit">Subir afiche</button>
+           46┆ </form>
+                                                                       
+    Ejercicio4/src/main/java/com/cinebuscador/config/SpelEvaluator.java
+    ❯❱ java.spring.security.audit.spel-injection.spel-injection
+          A Spring expression is built with a dynamic value. The source of the value(s) should be verified to
+          avoid that unfiltered values fall into this risky code evaluation.                                 
+          Details: https://sg.run/XBp4                                                                       
+                                                                                                             
+           14┆ public String evaluate(String expression) {
+           15┆     if (expression == null || expression.isBlank()) {
+           16┆         return "";
+           17┆     }
+           18┆
+           19┆     ExpressionParser parser = new SpelExpressionParser();
+           20┆
+           21┆     org.springframework.expression.EvaluationContext context =
+           22┆         SimpleEvaluationContext.forReadOnlyDataBinding().build();
+           23┆
+           24┆     StandardEvaluationContext standardContext = new StandardEvaluationContext();
+           25┆
+           26┆
+           27┆     standardContext.setVariable("system", System.class);
+           28┆     standardContext.setVariable("runtime", Runtime.class);
+           29┆
+           30┆     var expr = parser.parseExpression(expression);
+           31┆     Object result = expr.getValue(standardContext);
+           32┆
+           33┆     return result != null ? result.toString() : "";
+           34┆ }
+   
+   ❯❯❱ java.spring.security.spring-tainted-code-execution.spring-tainted-code-execution
+          User data flows into a script engine or another means of dynamic code evaluation. This is unsafe and
+          could lead to code injection or arbitrary code execution as a result. Avoid inputting user data into
+          code execution or use proper sandboxing if user code evaluation is necessary.                       
+          Details: https://sg.run/OjZB                                                                        
+                                                                                                              
+           30┆ var expr = parser.parseExpression(expression);
+    
+    
+          Taint comes from:
+    
+           Ejercicio4/src/main/java/com/cinebuscador/controller/FuncionController.java
+    
+           29┆ public String search(@RequestParam(required = false) String buscar, Model model) {
+    
+    
+          Taint flows through these intermediate variables:
+    
+           Ejercicio4/src/main/java/com/cinebuscador/controller/FuncionController.java
+    
+           29┆ public String search(@RequestParam(required = false) String buscar, Model model) {
+    
+    
+                This is how taint reaches the sink:
+    
+           Ejercicio4/src/main/java/com/cinebuscador/controller/FuncionController.java
+    
+           42┆ String spelResultado = spelEval.evaluate(buscar);
+    
+          Taint flows through these intermediate variables:
+    
+           14┆ public String evaluate(String expression) {
+    
+          then reaches:
+    
+           30┆ var expr = parser.parseExpression(expression);
+    
+                                                                           
+    Ejercicio5/src/main/java/com/cinebuscador/config/EncryptionService.java
+    ❯❱ java.lang.security.audit.crypto.use-of-aes-ecb.use-of-aes-ecb
+          Use of AES with ECB mode detected. ECB doesn't provide message confidentiality and  is not
+          semantically secure so should not be used. Instead, use a strong, secure cipher:          
+          Cipher.getInstance("AES/CBC/PKCS7PADDING"). See https://owasp.org/www-                    
+          community/Using_the_Java_Cryptographic_Extensions for more information.                   
+          Details: https://sg.run/dB2Y                                                              
+                                                                                                    
+           50┆ Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
+            ⋮┆----------------------------------------
+           64┆ Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
+                                                      
+    Ejercicio5/src/main/resources/templates/index.html
+    ❯❱ python.django.security.django-no-csrf-token.django-no-csrf-token
+          Manually-created forms in django templates should specify a csrf_token to prevent CSRF attacks.
+          Details: https://sg.run/N0Bp                                                                   
+                                                                                                         
+           45┆ <form th:action="@{/login}" method="post">
+           46┆     <label>Usuario</label>
+           47┆     <input type="text" name="username" placeholder="nombre de usuario" required>
+           48┆     <label>Contrase&#241;a</label>
+           49┆     <input type="password" name="password" placeholder="tu contrase&#241;a" required>
+           50┆     <button type="submit">Entrar</button>
+           51┆ </form>
+            ⋮┆----------------------------------------
+           56┆ <form th:action="@{/register}" method="post">
+           57┆     <label>Usuario</label>
+           58┆     <input type="text" name="username" placeholder="elige un usuario" required>
+           59┆     <label>Contrase&#241;a</label>
+           60┆     <input type="password" name="password" placeholder="elige una contrase&#241;a"
+               required>                                                                         
+           61┆     <label>Confirmar Contrase&#241;a</label>
+           62┆     <input type="password" name="confirmPwd" placeholder="repite la contrase&#241;a"
+               required>                                                                           
+           63┆     <button type="submit">Registrarse</button>
+           64┆ </form>
+
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ CI scan completed successfully.
+ • Findings: 11 (0 blocking)
+ • Rules run: 2969
+ • Targets scanned: 58
+ • Parsed lines: ~97.5%
+ • Scan skipped: 
+   ◦ Matching --exclude patterns: 10
+   ◦ Files matching .semgrepignore patterns: 5
+ • Scan was limited to files tracked by git
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+CI scan completed successfully.
+  View results in Semgrep Cloud Platform:
+    https://semgrep.dev/orgs/mujica-personal-org/findings?repo=local_scan/src&ref=main
+  No blocking findings so exiting with code 0

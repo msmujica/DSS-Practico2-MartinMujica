@@ -25,6 +25,7 @@ class EncryptionServiceTest {
         // El resultado debe existir, ser diferente de la password original y tener el prefijo de BCrypt.
         assertNotNull(hash);
         assertNotEquals(password, hash);
+        //Prefijo que identifica el hsh bcrypt
         assertTrue(hash.startsWith("$2"));
     }
 
